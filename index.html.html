@@ -1,0 +1,470 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Spirit Airlines Risk Simulator</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --ink:#111318; --muted:#6B7280; --faint:#9CA3AF; --line:#E8EAEE; --wash:#F5F6F8; --bg:#FFFFFF;
+  --fail:#D9472B; --fail-soft:#FBE6E1; --safe:#1F8A5B; --safe-soft:#E3F3EB;
+  --ghost:#D5D9E0; --amber:#E3A008;
+  --sans:"Inter","Segoe UI","Helvetica Neue",Arial,sans-serif;
+  --mono:"JetBrains Mono",ui-monospace,Consolas,monospace;
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg)}
+body{color:var(--ink);font:15px/1.55 var(--sans);-webkit-font-smoothing:antialiased}
+h1,h2,h3,p{margin:0}
+.num{font-variant-numeric:tabular-nums}
+
+/* header */
+header{position:sticky;top:0;z-index:10;background:rgba(255,255,255,.92);backdrop-filter:blur(8px);border-bottom:1px solid var(--line)}
+.top{max-width:1400px;margin:0 auto;padding:14px 28px;display:flex;align-items:center;gap:14px 26px;flex-wrap:wrap}
+.brand{display:flex;align-items:baseline;gap:12px}
+.brand b{font:700 20px/1 var(--sans);letter-spacing:-.02em}
+.brand span{color:var(--muted);font-size:13.5px}
+nav{margin-left:auto;display:flex;gap:2px;background:var(--wash);padding:3px;border-radius:10px}
+nav a{padding:6px 14px;border-radius:8px;color:var(--muted);text-decoration:none;font-weight:500;font-size:14px}
+nav a[aria-current]{background:#fff;color:var(--ink);box-shadow:0 0 0 1px var(--line),0 1px 2px rgba(0,0,0,.05)}
+
+.wrap{max-width:1400px;margin:0 auto;padding:20px 28px 40px}
+.view[hidden]{display:none!important}
+.eyebrow{font:600 11.5px var(--sans);letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.hero h1{font:800 34px/1.1 var(--sans);letter-spacing:-.035em;margin-top:4px}
+.hero p{color:#4B5260;font-size:16px;margin-top:6px}
+
+/* layout */
+.stage{display:grid;grid-template-columns:310px minmax(0,1fr);gap:26px;margin-top:18px;align-items:start}
+@media (max-width:1000px){.stage{grid-template-columns:1fr}}
+
+/* stepper */
+.steps{list-style:none;margin:0;padding:0}
+.step{display:grid;grid-template-columns:28px 1fr;gap:12px;padding:12px 14px;border-radius:14px;cursor:pointer;transition:background .2s}
+.step:hover{background:var(--wash)}
+.step .n{width:26px;height:26px;border-radius:50%;border:1.5px solid var(--line);display:grid;place-items:center;font:600 12.5px var(--sans);color:var(--muted);background:#fff;margin-top:1px}
+.step h3{font:600 15.5px/1.35 var(--sans);color:var(--muted)}
+.step p{display:none;font-size:14.5px;color:#3E4450;margin-top:6px}
+.step.on{background:var(--wash)}
+.step.on .n{background:var(--ink);border-color:var(--ink);color:#fff}
+.step.on h3{color:var(--ink)}
+.step.on p{display:block}
+.step p b{font-weight:600}
+.nav2{display:flex;gap:8px;margin:14px 0 0 14px}
+
+button{font:600 14px var(--sans);border-radius:999px;padding:9px 18px;cursor:pointer;border:1px solid var(--line);background:#fff;color:var(--ink);transition:background .15s,border-color .15s}
+button:hover:not(:disabled){background:var(--wash);border-color:#CDD2DA}
+button:disabled{opacity:.4;cursor:default}
+button.dark{background:var(--ink);border-color:var(--ink);color:#fff}
+button.dark:hover:not(:disabled){background:#2A2E37}
+button.hot{background:var(--fail);border-color:var(--fail);color:#fff}
+button.hot:hover:not(:disabled){background:#C23C22}
+
+/* panel */
+.panel{border:1px solid var(--line);border-radius:20px;padding:20px 22px 18px;background:#fff}
+.bar{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.bar .sp{flex:1}
+.count{font:500 13px var(--mono);color:var(--muted)}
+.charts{display:grid;grid-template-columns:minmax(0,1.7fr) minmax(0,1fr);gap:26px;margin-top:14px}
+@media (max-width:1100px){.charts{grid-template-columns:1fr}}
+.ct{display:flex;justify-content:space-between;align-items:baseline;gap:10px;margin-bottom:4px}
+.ct h3{font:600 15px var(--sans)}
+.ct span{font-size:12.5px;color:var(--muted)}
+svg text{font-family:var(--sans);font-size:11.5px;fill:var(--faint)}
+svg .lbl{fill:var(--ink);font-weight:600;font-size:12.5px}
+svg rect.b{transition:y .45s cubic-bezier(.2,.7,.2,1),height .45s cubic-bezier(.2,.7,.2,1),fill .3s}
+svg rect.h{transition:width .55s cubic-bezier(.2,.7,.2,1),fill .3s}
+.chart{position:relative}
+.tip{position:absolute;pointer-events:none;background:var(--ink);color:#fff;font:12.5px/1.45 var(--sans);padding:7px 11px;border-radius:9px;white-space:nowrap;transform:translate(-50%,calc(-100% - 10px));opacity:0;transition:opacity .1s;z-index:3}
+.tip.on{opacity:1}
+
+.lastd{font-size:12.5px;color:var(--muted);min-height:18px}
+.lastd b{color:var(--ink);font-weight:600}
+.side .card{background:var(--wash);border:0}
+.big .v{font:800 44px/1.05 var(--sans)}
+.vrow{display:flex;justify-content:space-between;align-items:baseline;border-top:1px solid #E3E6EB;margin-top:10px;padding-top:8px;font-size:13.5px;color:#3E4450}
+.vrow b{font:800 24px var(--sans);letter-spacing:-.02em}
+/* levers */
+.levers{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-top:14px}
+@media (max-width:900px){.levers{grid-template-columns:1fr}}
+.lever{background:var(--wash);border-radius:14px;padding:12px 14px}
+.lever .t{display:flex;justify-content:space-between;align-items:center;font-size:13.5px;color:#3E4450}
+.lever .t b{font:600 14px var(--mono);color:var(--ink)}
+.lever input[type=range]{width:100%;margin:8px 0 0;accent-color:var(--ink)}
+.tog{display:inline-flex;background:#fff;border-radius:999px;padding:3px;box-shadow:0 0 0 1px var(--line)}
+.tog button{border:0;padding:5px 14px;font-size:13px;background:transparent;color:var(--muted)}
+.tog button[aria-pressed=true]{background:var(--ink);color:#fff}
+.lever small{display:block;color:var(--muted);font-size:12px;margin-top:6px}
+
+/* results */
+.res{display:grid;grid-template-columns:1.4fr 1fr;gap:14px;margin-top:14px}
+@media (max-width:900px){.res{grid-template-columns:1fr}}
+.card{border-radius:14px;padding:14px 18px;border:1px solid var(--line)}
+.card .l{font-size:13px;color:var(--muted)}
+.big{display:flex;align-items:baseline;gap:14px;margin-top:2px;flex-wrap:wrap}
+.big .v{font:800 38px/1.05 var(--sans);letter-spacing:-.03em}
+.big .arrow{font:500 26px var(--sans);color:var(--faint)}
+.was{color:var(--fail)}
+.now{color:var(--safe)}
+.card .d{font-size:12.5px;color:var(--muted);margin-top:4px}
+
+/* secondary tabs */
+.sec h2{font:800 30px/1.15 var(--sans);letter-spacing:-.03em;margin-top:6px}
+.sec .sub{color:#4B5260;max-width:70ch;margin-top:8px}
+.agrid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;margin-top:22px}
+@media (max-width:1000px){.agrid{grid-template-columns:1fr}}
+.box{border:1px solid var(--line);border-radius:16px;padding:16px 18px}
+.box h3{font:600 15px var(--sans);margin-bottom:6px}
+.kv{display:grid;grid-template-columns:1fr auto;gap:2px 10px;padding:8px 0;border-top:1px solid var(--line);align-items:center;font-size:13.5px}
+.kv:first-of-type{border-top:0}
+.kv b{font:500 13px var(--mono)}
+.kv input[type=range]{grid-column:1/-1;width:100%;accent-color:var(--ink)}
+.kv small{grid-column:1/-1;color:var(--muted);font-size:12px;line-height:1.4}
+.formula{font:500 13px/1.75 var(--mono);background:var(--wash);border-radius:12px;padding:14px 16px;margin-top:18px;white-space:pre-wrap;color:#2B303A}
+table{border-collapse:collapse;width:100%;font-size:13.5px;font-variant-numeric:tabular-nums}
+th,td{padding:8px 12px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap}
+th:first-child,td:first-child{text-align:left}
+th{font-weight:600;color:var(--muted);font-size:12.5px;background:var(--wash);position:sticky;top:0}
+td.f{color:var(--fail);font-weight:600} td.s{color:var(--safe);font-weight:600}
+.scroll{overflow:auto;max-height:68vh;border:1px solid var(--line);border-radius:14px;margin-top:18px}
+.foot{color:var(--faint);font-size:12px;margin-top:18px}
+</style>
+</head>
+<body>
+<header><div class="top">
+  <div class="brand"><b>Spirit Airlines</b><span>Could risk management have prevented Chapter 11? · Monte Carlo from 31 Dec 2023</span></div>
+  <nav>
+    <a href="#story" data-v="story" aria-current="page">Story</a>
+    <a href="#assumptions" data-v="assumptions">Assumptions</a>
+    <a href="#trials" data-v="trials">Trial data</a>
+  </nav>
+</div></header>
+
+<div class="wrap">
+<!-- ===================== STORY ===================== -->
+<section class="view" id="v-story">
+  <div class="hero">
+    <p class="eyebrow">FE870 · Bad business or bad finance?</p>
+    <h1>Can Spirit pay its 2025 debt?</h1>
+    <p>Each draw is one possible 2024: fuel price, revenue and grounded jets. Left of the line, Spirit cannot pay.</p>
+  </div>
+
+  <div class="stage">
+    <div>
+      <ol class="steps" id="steps"></ol>
+      <div class="nav2"><button id="back">Back</button><button class="dark" id="next">Next step</button></div>
+    </div>
+
+    <div class="panel">
+      <div class="bar">
+        <button class="dark" id="d1">Draw once</button>
+        <button id="d100">Draw 100</button>
+        <button id="d2k">Draw 2,000</button>
+        <button class="hot" id="reset">Reset</button>
+        <span class="sp"></span>
+        <span class="count" id="count">0 draws</span>
+      </div>
+
+      <div class="charts">
+        <div>
+          <div class="ct"><h3>Cash left after paying 2025 debt ($M)</h3><span id="legendH"></span></div>
+          <div class="lastd" id="lastd">&nbsp;</div>
+          <div class="chart" id="hbox"><svg id="hist" width="100%" height="290"></svg><div class="tip" id="tip"></div></div>
+        </div>
+        <div class="side">
+          <div class="card hero2">
+            <div class="l">Chance Spirit cannot pay</div>
+            <div class="big"><span class="v was num" id="pb">–</span><span class="arrow">→</span><span class="v now num" id="pl">–</span></div>
+            <div class="vrow"><span>Value created</span><b class="num" id="val">–</b></div>
+            <div class="d" id="vd">&nbsp;</div>
+          </div>
+          <div class="ct" style="margin-top:14px"><h3>Every strategy, same draws</h3></div>
+          <svg id="cmp" width="100%" height="200"></svg>
+        </div>
+      </div>
+      <div class="levers">
+        <div class="lever">
+          <div class="t"><span>Fuel hedge (collar)</span><b id="o-h">0%</b></div>
+          <input type="range" id="h" min="0" max="1" step="0.05" value="0">
+        </div>
+        <div class="lever">
+          <div class="t"><span>Refinance 2025 notes</span>
+            <span class="tog" id="refi"><button data-k="0" aria-pressed="true">Off</button><button data-k="1" aria-pressed="false">On</button></span></div>
+          <small>$1.1B pushed to 2029+ in 2023</small>
+        </div>
+        <div class="lever">
+          <div class="t"><span>Equity raised at YE 2023</span><b id="o-eq">$0M</b></div>
+          <input type="range" id="eq" min="0" max="1000" step="50" value="0">
+        </div>
+      </div>
+
+    </div>
+  </div>
+  <p class="foot">Baseline: 2023 10-K and 2024 10-Qs (team Master Excel). Distributions and lever costs are teaching assumptions; see the Assumptions tab.</p>
+</section>
+
+<!-- ===================== ASSUMPTIONS ===================== -->
+<section class="view sec" id="v-assumptions" hidden>
+  <p class="eyebrow">Assumptions</p>
+  <h2>What drives the simulation</h2>
+  <p class="sub">Change anything here and the Story tab re-prices the same draws, so every difference comes from the input, not from new luck.</p>
+  <div class="agrid">
+    <div class="box">
+      <h3>Spirit at 31 Dec 2023 · locked</h3>
+      <div class="kv"><span>Liquidity (cash, investments, revolver)</span><b>1,277.7</b></div>
+      <div class="kv"><span>EBITDA FY23</span><b>−174.9</b></div>
+      <div class="kv"><span>Interest expense</span><b>169.2</b></div>
+      <div class="kv"><span>Debt due 2024</span><b>305.2</b></div>
+      <div class="kv"><span>Debt due 2025 (incl. $1,110 of 8% notes)</span><b>1,263.7</b></div>
+      <div class="kv"><span>Fuel: 591.8M gal at $3.08</span><b>1,821</b></div>
+      <div class="kv"><span>Revenue FY23</span><b>5,362.5</b></div>
+      <div class="kv"><small>$M. Source: 2023 10-K, Capital Structure tab.</small></div>
+    </div>
+    <div class="box">
+      <h3>Uncertainty in 2024</h3>
+      <div class="kv"><span>Fuel price volatility</span><b id="o-cvF"></b><input type="range" id="cvF" min="0.05" max="0.5" step="0.01" value="0.25"><small>Normal, mean $3.08 (the hedge strike).</small></div>
+      <div class="kv"><span>Revenue volatility</span><b id="o-cvR"></b><input type="range" id="cvR" min="0" max="0.2" step="0.01" value="0.07"><small>Flows to cash at a 40% margin.</small></div>
+      <div class="kv"><span>Grounded jets, mean</span><b id="o-gM"></b><input type="range" id="gM" min="0" max="50" step="1" value="25"><small>P&amp;W GTF. $3.5M/yr each after the IAE credit.</small></div>
+      <div class="kv"><span>Grounded jets, SD</span><b id="o-gS"></b><input type="range" id="gS" min="0" max="20" step="1" value="8"></div>
+    </div>
+    <div class="box">
+      <h3>Distress and lever costs</h3>
+      <div class="kv"><span>Minimum cash to keep flying</span><b id="o-minL"></b><input type="range" id="minL" min="0" max="800" step="25" value="400"><small>Distress if YE 2024 cash &lt; 2025 debt + this.</small></div>
+      <div class="kv"><span>Cost of distress, % of firm value</span><b id="o-dc"></b><input type="range" id="dc" min="0.05" max="0.25" step="0.01" value="0.10"><small>Firm value 5,230.5. 10% as in Pacific Salmon.</small></div>
+      <div class="kv"><span>Collar half-width</span><b id="o-w"></b><input type="range" id="w" min="0.1" max="0.8" step="0.05" value="0.30"><small>Zero-cost collar around $3.08.</small></div>
+      <div class="kv"><span>Bank spread on hedge</span><b id="o-sp"></b><input type="range" id="sp" min="0" max="0.15" step="0.01" value="0.04"></div>
+      <div class="kv"><span>Coupon on refinanced notes</span><b id="o-cpn"></b><input type="range" id="cpn" min="0.08" max="0.15" step="0.005" value="0.11"><small>Old coupon 8%.</small></div>
+    </div>
+  </div>
+  <div class="formula">Cash at YE 2024 = 1,277.7 + EBITDA − (fuel − 3.08) × 591.8 + (revenue − 5,362.5) × 40% − jets × 3.46 − interest − 305.2
+              + hedge payoff − extra interest + equity × 95%
+Headroom      = Cash at YE 2024 − (2025 debt + minimum cash)          distress if headroom &lt; 0
+Value created = [P(distress) as it was − P(distress) with levers] × distress cost − annual cost of levers</div>
+</section>
+
+<!-- ===================== TRIALS ===================== -->
+<section class="view sec" id="v-trials" hidden>
+  <div style="display:flex;justify-content:space-between;align-items:end;gap:12px;flex-wrap:wrap">
+    <div><p class="eyebrow">Every draw</p><h2>Trial data</h2><p class="sub">First 500 draws, priced with the current strategy. $M.</p></div>
+    <button id="csv">Copy all as CSV</button>
+  </div>
+  <div class="scroll"><table id="tt"><thead><tr><th>Draw</th><th>Fuel $/gal</th><th>Revenue</th><th>Grounded jets</th><th>Headroom: as it was</th><th>Headroom: strategy</th></tr></thead><tbody></tbody></table></div>
+</section>
+</div>
+
+<script>
+(function(){
+"use strict";
+const $=id=>document.getElementById(id);
+// ---------- baseline ----------
+const B={L0:1277.7,EBITDA:-174.9,INT:169.2,MAT24:305.2,MAT25:1263.7,NOTES:1110,CPN0:0.08,GAL:591.8,F0:3.08,R0:5362.5,M:0.40,REVAC:5362.5/205,CREDIT:7,FEE:0.05,FV:1791.427+3439.1};
+B.GCOST=B.REVAC*B.M-B.CREDIT;
+
+// ---------- story ----------
+const STEPS=[
+ {t:"Spirit as it was",lv:{h:0,refi:0,eq:0},
+  p:"No fuel hedges, $1.26B of debt due in 2025, and cash burning. Press <b>Draw 2,000</b>: almost the whole pile lands left of the line."},
+ {t:"Hedge fuel only",lv:{h:0.6,refi:0,eq:0},
+  p:"A 60% collar makes the pile narrower, but it stays left of the line. A hedge cannot fix a maturity wall. It even removes the lucky years Spirit needed."},
+ {t:"Refinance the 2025 notes",lv:{h:0,refi:1,eq:0},
+  p:"Pushing the $1.1B notes out of 2025 in 2023 moves the whole pile right. This is the biggest lever: <b>bad finance, not bad business</b>."},
+ {t:"Add a cash buffer",lv:{h:0,refi:1,eq:250},
+  p:"Raise $250M of equity at YE 2023 as well. The middle of the pile now sits on the safe side of the line."},
+ {t:"Now hedge: our recommendation",lv:{h:0.6,refi:1,eq:250},
+  p:"Only now does a 60% fuel collar help: it trims the left tail and pulls draws into safety. <b>Fix the balance sheet first, then hedge.</b>"}
+];
+const CMP=[["As it was",{h:0,refi:0,eq:0}],["Hedge only",{h:0.6,refi:0,eq:0}],["Refinance",{h:0,refi:1,eq:0}],["Refinance + equity",{h:0,refi:1,eq:250}],["+ Hedge (recommended)",{h:0.6,refi:1,eq:250}]];
+let cur=0;
+
+// ---------- random draws (common random numbers) ----------
+let seed=20231231;
+function rng(){seed|=0;seed=seed+0x6D2B79F5|0;let t=Math.imul(seed^seed>>>15,1|seed);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;}
+function nrm(){let u=0,v=0;while(!u)u=rng();while(!v)v=rng();return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v);}
+let Z=[], last=-1;
+
+// ---------- inputs ----------
+const A=["cvF","cvR","gM","gS","minL","dc","w","sp","cpn"];
+const FMT={cvF:v=>(v*100).toFixed(0)+"%",cvR:v=>(v*100).toFixed(0)+"%",gM:v=>v.toFixed(0),gS:v=>v.toFixed(0),minL:v=>"$"+v.toFixed(0)+"M",dc:v=>(v*100).toFixed(0)+"%",w:v=>"$"+v.toFixed(2),sp:v=>"$"+v.toFixed(2),cpn:v=>(v*100).toFixed(1)+"%"};
+let LV={h:0,refi:0,eq:0};
+function P(){const o={};A.forEach(k=>o[k]=+$(k).value);return o;}
+
+// ---------- model ----------
+function base(z,p){
+  const F=Math.max(0.5,B.F0*(1+p.cvF*z[0])), R=B.R0*(1+p.cvR*z[1]), G=Math.max(0,p.gM+p.gS*z[2]);
+  const cash=B.L0+B.EBITDA-(F-B.F0)*B.GAL+(R-B.R0)*B.M-G*B.GCOST-B.INT-B.MAT24;
+  return {F,R,G,cash};
+}
+function strat(t,p,lv){
+  let hp=0;
+  if(lv.h>0){const K=B.F0,x=Math.max(t.F-(K+p.w),0)-Math.max((K-p.w)-t.F,0);hp=lv.h*B.GAL*(x-p.sp);}
+  const extra=lv.refi?B.NOTES*(p.cpn-B.CPN0):0, mat=lv.refi?B.MAT25-B.NOTES:B.MAT25;
+  return t.cash+hp-extra+lv.eq*(1-B.FEE)-(mat+p.minL);
+}
+function cost(p,lv){return lv.h*B.GAL*p.sp+(lv.refi?B.NOTES*(p.cpn-B.CPN0):0)+lv.eq*B.FEE;}
+function run(p,lv){
+  const n=Z.length,hb=new Float64Array(n),hl=new Float64Array(n);let db=0,dl=0;
+  for(let i=0;i<n;i++){const t=base(Z[i],p);hb[i]=t.cash-(B.MAT25+p.minL);hl[i]=strat(t,p,lv);if(hb[i]<0)db++;if(hl[i]<0)dl++;}
+  const pb=n?db/n:NaN,pl=n?dl/n:NaN,DC=p.dc*B.FV,c=cost(p,lv);
+  return {n,hb,hl,pb,pl,c,value:(pb-pl)*DC-c};
+}
+const pc=v=>isFinite(v)?(v*100).toFixed(0)+"%":"–";
+const m0=v=>(v<0?"−$":"$")+Math.abs(Math.round(v)).toLocaleString("en-US")+"M";
+
+// ---------- histogram (persistent bars) ----------
+const LO=-2600,HI=1400,BW=100,NB=(HI-LO)/BW;
+const svgH=$("hist"),svgC=$("cmp");
+let HG=null;
+function buildHist(){
+  const W=svgH.clientWidth||800,H=290,m={l:40,r:10,t:22,b:30};
+  HG={W,H,m,x:v=>m.l+(v-LO)/(HI-LO)*(W-m.l-m.r),bw:(W-m.l-m.r)/NB};
+  let s="";
+  s+=`<rect x="${m.l}" y="${m.t}" width="${HG.x(0)-m.l}" height="${H-m.t-m.b}" fill="#FDF3F0"/>`;
+  s+=`<g id="gy"></g>`;
+  for(let v=-2500;v<=1000;v+=500) s+=`<text x="${HG.x(v)}" y="${H-10}" text-anchor="middle">${v===0?"0":(v>0?"+":"−")+Math.abs(v).toLocaleString()}</text>`;
+  s+=`<g id="gg"></g><g id="gs"></g>`;
+  s+=`<line x1="${HG.x(0)}" x2="${HG.x(0)}" y1="${m.t-14}" y2="${H-m.b}" stroke="#111318" stroke-width="2"/>`;
+  s+=`<text x="${HG.x(0)-8}" y="${m.t-4}" text-anchor="end" style="fill:#D9472B;font-weight:700;font-size:12.5px">CANNOT PAY</text>`;
+  s+=`<text x="${HG.x(0)+8}" y="${m.t-4}" style="fill:#1F8A5B;font-weight:700;font-size:12.5px">CAN PAY</text>`;
+  s+=`<g id="gd"></g>`;
+  svgH.innerHTML=s;
+  const gg=$("gg"),gs=$("gs");let a="",b="";
+  for(let i=0;i<NB;i++){const x=m.l+i*HG.bw+1,w=Math.max(1,HG.bw-2);
+    a+=`<rect class="b" x="${x}" y="${H-m.b}" width="${w}" height="0" fill="#D5D9E0" opacity=".9"/>`;
+    b+=`<rect class="b" x="${x}" y="${H-m.b}" width="${w}" height="0" rx="1.5" fill="${LO+(i+.5)*BW<0?"#D9472B":"#1F8A5B"}"/>`;}
+  gg.innerHTML=a;gs.innerHTML=b;
+}
+function drawHist(r,p){
+  if(!HG||Math.abs((svgH.clientWidth||800)-HG.W)>2)buildHist();
+  const {H,m}=HG;const cb=new Array(NB).fill(0),cl=new Array(NB).fill(0);
+  const bin=v=>Math.max(0,Math.min(NB-1,Math.floor((v-LO)/BW)));
+  for(let i=0;i<r.n;i++){cb[bin(r.hb[i])]++;cl[bin(r.hl[i])]++;}
+  const showGhost=!(LV.h===0&&!LV.refi&&LV.eq===0);
+  const mx=Math.max(0.10,...cl.map(c=>r.n?c/r.n:0),...(showGhost?cb.map(c=>r.n?c/r.n:0):[0]))*1.08;
+  const y=f=>H-m.b-f/mx*(H-m.t-m.b);
+  let g="";for(let k=1;k<=3;k++){const f=Math.round(mx*k/3*100)/100,yy=y(f);g+=`<line x1="${m.l}" x2="${HG.W-m.r}" y1="${yy}" y2="${yy}" stroke="#EEF0F3"/><text x="${m.l-6}" y="${yy+4}" text-anchor="end">${Math.round(f*100)}%</text>`;}
+  $("gy").innerHTML=g;
+  const ga=$("gg").children,gb=$("gs").children;
+  for(let i=0;i<NB;i++){
+    const fb=r.n&&showGhost?cb[i]/r.n:0,fl=r.n?cl[i]/r.n:0;
+    ga[i].style.y=y(fb)+"px";ga[i].style.height=(H-m.b-y(fb))+"px";
+    gb[i].style.y=y(fl)+"px";gb[i].style.height=(H-m.b-y(fl))+"px";
+  }
+  $("legendH").innerHTML=showGhost?'<span style="display:inline-block;width:10px;height:10px;background:#D5D9E0;border-radius:2px;margin-right:5px"></span>grey = as it was':'';
+  // last draw marker
+  let d="";
+  if(last>=0&&last<r.n){
+    const t=base(Z[last],p),hv=r.hl[last],xx=Math.max(m.l+4,Math.min(HG.W-m.r-4,HG.x(Math.max(LO,Math.min(HI,hv)))));
+    const ok=hv>=0;
+    d=`<line x1="${xx}" x2="${xx}" y1="${m.t}" y2="${H-m.b}" stroke="${ok?"#1F8A5B":"#D9472B"}" stroke-width="1.5" stroke-dasharray="3 3"/><circle cx="${xx}" cy="${H-m.b}" r="5" fill="${ok?"#1F8A5B":"#D9472B"}" stroke="#fff" stroke-width="2"/>`;
+    $("lastd").innerHTML=`Last draw: fuel <b>$${t.F.toFixed(2)}</b>/gal · <b>${Math.round(t.G)}</b> jets grounded · cash left <b style="color:${ok?"#1F8A5B":"#D9472B"}">${m0(hv)}</b>`;
+  } else $("lastd").innerHTML="&nbsp;";
+  $("gd").innerHTML=d;
+  // hover
+  const tip=$("tip");
+  svgH.onmousemove=e=>{const bx=svgH.getBoundingClientRect(),px=e.clientX-bx.left,i=Math.floor((px-m.l)/HG.bw);
+    if(i<0||i>=NB||!r.n){tip.classList.remove("on");return;}
+    const a=LO+i*BW;tip.innerHTML=`${m0(a)} to ${m0(a+BW)}<br>${(cl[i]/r.n*100).toFixed(1)}% of draws`;
+    tip.style.left=px+"px";tip.style.top=(e.clientY-bx.top)+"px";tip.classList.add("on");};
+  svgH.onmouseleave=()=>tip.classList.remove("on");
+}
+
+// ---------- comparison bars ----------
+let CG=null;
+function buildCmp(){
+  const W=svgC.clientWidth||400,H=200,rowH=38,top=8,lw=0;
+  CG={W,H,rowH,top};
+  let s="";
+  CMP.forEach((c,i)=>{const y=top+i*rowH;
+    s+=`<text class="cl" x="0" y="${y+12}" style="font-size:12.5px;fill:#3E4450;font-weight:500">${c[0]}</text>`;
+    s+=`<rect x="0" y="${y+18}" width="${W-50}" height="10" rx="5" fill="#F1F2F5"/>`;
+    s+=`<rect class="h" x="0" y="${y+18}" width="0" height="10" rx="5" fill="#D9472B"/>`;
+    s+=`<text class="pv" x="${W}" y="${y+28}" text-anchor="end" style="font:700 14px Inter,sans-serif;fill:#111318">–</text>`;});
+
+  svgC.innerHTML=s;
+}
+function drawCmp(p){
+  if(!CG||Math.abs((svgC.clientWidth||400)-CG.W)>2)buildCmp();
+  const bars=svgC.querySelectorAll("rect.h"),vals=svgC.querySelectorAll("text.pv"),names=svgC.querySelectorAll("text.cl");
+  let match=-1;
+  CMP.forEach((c,i)=>{const r=Z.length?run(p,c[1]):null;const v=r?r.pl:0;
+    bars[i].style.width=((CG.W-50)*v)+"px";
+    bars[i].setAttribute("fill",v>0.5?"#D9472B":(v>0.2?"#E3A008":"#1F8A5B"));
+    vals[i].textContent=r?pc(v):"–";
+    const same=c[1].h===LV.h&&c[1].refi===LV.refi&&c[1].eq===LV.eq; if(same)match=i;
+    names[i].style.fontWeight=same?"700":"500"; names[i].style.fill=same?"#111318":"#8A909B"; names[i].textContent=(same?"▸ ":"")+c[0];});
+  CMP.forEach((c,i)=>{bars[i].style.opacity=(i===match||match<0)?1:.5;});
+
+}
+
+// ---------- render ----------
+function render(){
+  const p=P();
+  A.forEach(k=>$("o-"+k).textContent=FMT[k](p[k]));
+  $("o-h").textContent=Math.round(LV.h*100)+"%";
+  $("o-eq").textContent="$"+LV.eq+"M";
+  $("h").value=LV.h;$("eq").value=LV.eq;
+  $("refi").querySelectorAll("button").forEach(b=>b.setAttribute("aria-pressed",String(+b.dataset.k===LV.refi)));
+  const r=run(p,LV);
+  $("count").textContent=r.n.toLocaleString()+" draws";
+  drawHist(r,p);drawCmp(p);
+  $("pb").textContent=r.n?pc(r.pb):"–";
+  $("pl").textContent=r.n?pc(r.pl):"–";
+  $("pl").style.color=!r.n?"":(r.pl>0.5?"var(--fail)":(r.pl>0.2?"#B98100":"var(--safe)"));
+  const v=$("val");
+  if(!r.n||r.c===0){v.textContent="–";v.style.color="";$("vd").textContent=r.n?"no levers switched on":"press Draw 2,000";}
+  else{v.textContent=(r.value>=0?"+":"")+m0(r.value).replace("−","−");v.style.color=Math.abs(r.value)<1?"var(--ink)":(r.value>0?"var(--safe)":"var(--fail)");
+    $("vd").textContent=`lower expected distress cost, net of ${m0(r.c)}/yr cost`;}
+  drawSteps();
+  if(!$("v-trials").hidden)drawTrials(p);
+}
+function drawSteps(){
+  $("steps").innerHTML=STEPS.map((s,i)=>`<li class="step${i===cur?" on":""}" data-i="${i}"><span class="n">${i+1}</span><div><h3>${s.t}</h3><p>${s.p}</p></div></li>`).join("");
+  $("steps").querySelectorAll(".step").forEach(el=>el.onclick=()=>go(+el.dataset.i));
+  $("back").disabled=cur===0;$("next").disabled=cur===STEPS.length-1;
+}
+function go(i){cur=Math.max(0,Math.min(STEPS.length-1,i));LV=Object.assign({},STEPS[cur].lv);render();}
+
+// ---------- draws with animation ----------
+let anim=null;
+function draw(n){
+  if(anim)cancelAnimationFrame(anim);
+  if(n===1){Z.push([nrm(),nrm(),nrm()]);last=Z.length-1;render();return;}
+  let left=n;const per=Math.max(1,Math.ceil(n/40));
+  const tick=()=>{const k=Math.min(per,left);for(let i=0;i<k;i++)Z.push([nrm(),nrm(),nrm()]);left-=k;last=Z.length-1;render();if(left>0)anim=requestAnimationFrame(tick);else anim=null;};
+  tick();
+}
+$("d1").onclick=()=>draw(1);$("d100").onclick=()=>draw(100);$("d2k").onclick=()=>draw(2000);
+$("reset").onclick=()=>{if(anim)cancelAnimationFrame(anim);Z=[];last=-1;seed=20231231;render();};
+$("back").onclick=()=>go(cur-1);$("next").onclick=()=>go(cur+1);
+$("h").oninput=e=>{LV.h=+e.target.value;render();};
+$("eq").oninput=e=>{LV.eq=+e.target.value;render();};
+$("refi").querySelectorAll("button").forEach(b=>b.onclick=()=>{LV.refi=+b.dataset.k;render();});
+A.forEach(k=>$(k).addEventListener("input",render));
+
+// ---------- trials ----------
+function drawTrials(p){
+  const n=Math.min(500,Z.length);let s="";
+  for(let i=0;i<n;i++){const t=base(Z[i],p),hb=t.cash-(B.MAT25+p.minL),hl=strat(t,p,LV);
+    s+=`<tr><td>${i+1}</td><td>${t.F.toFixed(2)}</td><td>${Math.round(t.R).toLocaleString()}</td><td>${t.G.toFixed(0)}</td><td class="${hb<0?"f":"s"}">${Math.round(hb).toLocaleString()}</td><td class="${hl<0?"f":"s"}">${Math.round(hl).toLocaleString()}</td></tr>`;}
+  $("tt").tBodies[0].innerHTML=s||`<tr><td colspan="6" style="text-align:left;color:var(--muted)">No draws yet. Go to Story and press Draw.</td></tr>`;
+}
+$("csv").onclick=()=>{const p=P();let s="draw,fuel_per_gal,revenue,grounded,headroom_as_it_was,headroom_strategy\n";
+  Z.forEach((z,i)=>{const t=base(z,p);s+=[i+1,t.F.toFixed(3),t.R.toFixed(1),t.G.toFixed(1),(t.cash-(B.MAT25+p.minL)).toFixed(1),strat(t,p,LV).toFixed(1)].join(",")+"\n";});
+  const ok=()=>{$("csv").textContent="Copied";setTimeout(()=>$("csv").textContent="Copy all as CSV",1500);};
+  if(navigator.clipboard)navigator.clipboard.writeText(s).then(ok,ok);else ok();};
+
+// ---------- tabs ----------
+function show(v){["story","assumptions","trials"].forEach(k=>$("v-"+k).hidden=k!==v);
+  document.querySelectorAll("nav a").forEach(a=>a.dataset.v===v?a.setAttribute("aria-current","page"):a.removeAttribute("aria-current"));
+  HG=null;CG=null;render();}
+document.querySelectorAll("nav a").forEach(a=>a.onclick=e=>{e.preventDefault();show(a.dataset.v);history.replaceState(null,"","#"+a.dataset.v);});
+window.addEventListener("resize",()=>{HG=null;CG=null;render();});
+const h0=(location.hash||"").slice(1);
+show(["assumptions","trials"].includes(h0)?h0:"story");
+})();
+</script>
+</body>
+</html>
